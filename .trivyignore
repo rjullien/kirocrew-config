@@ -1,0 +1,7 @@
+# Baseline Trivy — exceptions inherited from the official base image that this
+# repo's thin apt-upgrade layer cannot clear. Resolve by bumping the base
+# (Renovate). Do NOT add CVEs introduced by this repo's own layer here.
+#
+# Re-evaluate on every base-image bump. Empty until a first CI scan proves a
+# residual CRITICAL that apt cannot fix.
+

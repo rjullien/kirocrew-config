@@ -1,0 +1,87 @@
+name: Build Image (reusable)
+# Reusable workflow: build + push to GHCR.
+# Called by build.yml (manual release / workflow_dispatch) AND by
+# auto-release.yml in the SAME run after creating the release — do not rely on
+# `release: published` for workflow-created releases (GitHub anti-recursion;
+# hermes-leo-config #33).
+#
+# Calver tags (vX.Y.Z, vX.Y) and `latest` are emitted ONLY when the caller
+# sets publish_release_tags=true. workflow_dispatch passes false → sha-* only.
+
+on:
+  workflow_call:
+    inputs:
+      publish_release_tags:
+        description: "Emit calver (vX.Y.Z, vX.Y) and latest. True only for a real release."
+        required: false
+        type: boolean
+        default: false
+      release_tag:
+        description: >-
+          Calver tag (e.g. v2026.9.15). Required when publish_release_tags=true
+          and the caller is not the release event itself (auto-release push to
+          main has github.ref = refs/heads/main, so metadata-action needs value=).
+        required: false
+        type: string
+        default: ""
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/kirocrew
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern=v{{version}},value=${{ inputs.release_tag }},enable=${{ inputs.publish_release_tags }}
+            type=semver,pattern=v{{major}}.{{minor}},value=${{ inputs.release_tag }},enable=${{ inputs.publish_release_tags }}
+            type=raw,value=latest,enable=${{ inputs.publish_release_tags }}
+            type=sha,prefix=sha-
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Generate artifact attestation
+        if: github.repository_visibility == 'public'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

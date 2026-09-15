@@ -1,0 +1,115 @@
+name: Auto Release
+# Create a calver GitHub Release when the Dockerfile FROM pin changes on main,
+# then build+push in the SAME run via build-image.yml. Do not wait for
+# `release: published` — GitHub suppresses that event for workflow-created
+# releases (hermes-leo-config #33).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - name: Checkout (full history for tag diff)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Compute calver tag (vYYYY.M.D[.N])
+        id: tag
+        run: |
+          BASE="v$(date -u +%Y.%-m.%-d)"
+          TAG="$BASE"
+          N=1
+          while gh release view "$TAG" --repo "${{ github.repository }}" 2>/dev/null; do
+            TAG="${BASE}.$N"
+            N=$((N+1))
+          done
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if FROM pin unchanged since last release
+        id: check
+        run: |
+          LAST_TAG=$(gh release list --repo "${{ github.repository }}" --limit 1 --json tagName --jq '.[0].tagName')
+          if [ -z "$LAST_TAG" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Compare FROM lines (tag + digest). Comment-only edits do not release.
+          CURRENT_FROM=$(grep -E '^FROM ' Dockerfile | sort)
+          LAST_FROM=$(git show "$LAST_TAG":Dockerfile 2>/dev/null | grep -E '^FROM ' | sort || true)
+          if [ "$CURRENT_FROM" = "$LAST_FROM" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build release notes
+        id: notes
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          LAST_TAG=$(gh release list --repo "${{ github.repository }}" --limit 1 --json tagName --jq '.[0].tagName')
+          if [ -z "$LAST_TAG" ]; then
+            {
+              echo "NOTES<<EOF"
+              echo "First automatic release of kirocrew-config (thin layer on official kirocrew)."
+              echo ""
+              echo "Image: \`ghcr.io/rjullien/kirocrew-config/kirocrew\`"
+              echo "No secrets in the image — runtime credentials live in Infisical / the PVC."
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          OLD=$(git show "$LAST_TAG":Dockerfile 2>/dev/null | grep -E '^FROM ' | head -1 || echo "?")
+          NEW=$(grep -E '^FROM ' Dockerfile | head -1)
+          {
+            echo "NOTES<<EOF"
+            echo "## Base image"
+            echo ""
+            echo "- before: \`$OLD\`"
+            echo "- after: \`$NEW\`"
+            echo ""
+            echo "Automatic release after a Dockerfile FROM pin change (typically Renovate)."
+            echo "No secrets in the image — runtime credentials live in Infisical / the PVC."
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        if: steps.check.outputs.changed == 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          NOTES: ${{ steps.notes.outputs.NOTES }}
+          # Build runs in this same workflow (job `build`); we do not depend on
+          # re-emitting release:published. github.token with contents:write is
+          # enough to create the release.
+        run: |
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "kirocrew-config $TAG" \
+            --notes "$NOTES"
+
+  build:
+    needs: release
+    if: needs.release.outputs.changed == 'true'
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      publish_release_tags: true
+      release_tag: ${{ needs.release.outputs.tag }}
+    secrets: inherit

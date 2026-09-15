@@ -1,0 +1,100 @@
+name: PR Validation (build + smoke + scan)
+
+# Validate the image on every PR / push to main without publishing.
+# Smoke checks binaries only — does not start the gateway or require login.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+
+      - name: Build image amd64 (no push, load for smoke)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: kirocrew-config:pr-validation
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Smoke test — binaries respond without gateway / login
+        run: |
+          set -euo pipefail
+          img=kirocrew-config:pr-validation
+          echo "::group::kirocrew --help"
+          docker run --rm --entrypoint kirocrew "$img" --help
+          echo "::endgroup::"
+          echo "::group::kiro-cli --help"
+          docker run --rm --entrypoint kiro-cli "$img" --help
+          echo "::endgroup::"
+
+      - name: Verify upstream USER / entrypoint / workdir contract
+        run: |
+          set -euo pipefail
+          img=kirocrew-config:pr-validation
+          user=$(docker image inspect "$img" --format '{{.Config.User}}')
+          entrypoint=$(docker image inspect "$img" --format '{{json .Config.Entrypoint}}')
+          cmd=$(docker image inspect "$img" --format '{{json .Config.Cmd}}')
+          workdir=$(docker image inspect "$img" --format '{{.Config.WorkingDir}}')
+          arch=$(docker image inspect "$img" --format '{{.Architecture}}')
+          echo "user=$user entrypoint=$entrypoint cmd=$cmd workdir=$workdir arch=$arch"
+          test "$user" = "kirocrew"
+          test "$entrypoint" = '["kirocrew-entrypoint"]'
+          test "$cmd" = '["gateway"]'
+          test "$workdir" = "/home/kirocrew"
+          test "$arch" = "amd64"
+
+      - name: Build multi-arch (no push, no load) — arm64 feasible check
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          push: false
+          tags: kirocrew-config:pr-validation-multi
+          cache-from: type=gha
+          platforms: linux/amd64,linux/arm64
+
+      - name: Vulnerability report (informational HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: kirocrew-config:pr-validation
+          format: table
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+        env:
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
+
+      - name: Gate — CRITICAL fixable (outside .trivyignore baseline)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: kirocrew-config:pr-validation
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          vuln-type: os,library
+          severity: CRITICAL
+        env:
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
