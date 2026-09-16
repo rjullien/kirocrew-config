@@ -1,8 +1,9 @@
 # kirocrew-config
 
 Custom image for **[Kiro Crew](https://kiro.dev/crew/)** (gateway 24/7:
-dashboard, channels, cron, multi-agent) on the personal k3s cluster — same
-build-repo pattern as [`hermes-leo-config`](https://github.com/rjullien/hermes-leo-config).
+dashboard, channels, cron, multi-agent) on the k3s cluster GitOps'd via
+[`BaptTF/vps-infra`](https://github.com/BaptTF/vps-infra) — same build-repo
+pattern as [`hermes-leo-config`](https://github.com/rjullien/hermes-leo-config).
 
 | | |
 |---|---|

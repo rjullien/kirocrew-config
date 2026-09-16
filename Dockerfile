@@ -3,7 +3,7 @@
 #
 # This is NOT kiro-cli-config. The official image already embeds kiro-cli as the
 # agent runtime; this repo only rebuilds/publishes a pinned, scan-gated image
-# for the personal k3s cluster.
+# for the k3s cluster GitOps'd via BaptTF/vps-infra.
 #
 # Base: ghcr.io/kirodotdev/kirocrew (Python 3.12 slim-trixie, multi-arch).
 # Upstream contract preserved: USER kirocrew, HOME/WORKDIR /home/kirocrew,

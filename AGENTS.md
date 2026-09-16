@@ -1,7 +1,8 @@
 # AGENTS.md — rules for AI agents working on this repo
 
 This repo builds a **thin custom image** of the official Kiro Crew gateway for
-René's personal k3s cluster. Read this before changing anything.
+the k3s cluster GitOps'd via BaptTF/vps-infra. Read this before changing
+anything.
 
 ## Purpose
 
