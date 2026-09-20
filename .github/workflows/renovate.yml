@@ -2,7 +2,8 @@ name: Renovate
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    # daily at 06:00 UTC (08:00 Europe/Paris in summer)
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       log_level:
