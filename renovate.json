@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "description": "Official Kiro Crew base image — pinDigests keeps tag+digest in sync. 7-day soak, automerge (human review happens when BaptTF/vps-infra consumes the image).",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/kirodotdev/kirocrew"],
+      "minimumReleaseAge": "7 days",
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "GitHub Actions used by this repo — automerge after CI",
+      "matchDatasources": ["github-tags"],
+      "matchManagers": ["github-actions"],
+      "automerge": true,
+      "automergeType": "pr"
+    }
+  ],
+  "pinDigests": true,
+  "automergeType": "pr",
+  "prBodyColumns": ["Package", "Update", "Type", "Change", "Notes"]
+}

@@ -1,0 +1,24 @@
+name: Build and Push Kiro Crew Image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# Delegates to build-image.yml.
+#   - release: published → human-published release → calver + latest
+#   - workflow_dispatch → sha-<commit> only (does not move latest)
+# Auto-created releases do NOT land here (anti-recursion); auto-release.yml
+# calls build-image.yml in the same run.
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      publish_release_tags: ${{ github.event_name == 'release' }}
+    secrets: inherit
