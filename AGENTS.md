@@ -42,7 +42,17 @@ Calver tags `vYYYY.M.D` (with `.N` suffix if needed the same day):
    the release is created from a workflow — see hermes-leo-config #33)
 3. Image tags pushed:
    - `vYYYY.M.D`, `vYYYY.M`, `latest`, `sha-<commit>`
-4. Update the image digest/tag in **BaptTF/vps-infra** → ArgoCD syncs
+4. **Deployment is automatic — no vps-infra PR.** ArgoCD Image Updater
+   (CR `kirocrew-updater` in `BaptTF/vps-infra/system/argocd-image-updater/crs/`,
+   `newest-build`, calver `allowTags`) picks the new tag and writes it straight
+   to vps-infra `main` in `workloads/agents/.argocd-source-agents.yaml`
+   → ArgoCD syncs. Do **not** hand-edit the tag in
+   `workloads/agents/kirocrew/deployment.yaml`: it is only the default, the
+   `.argocd-source-agents.yaml` override wins once it exists. To know what
+   runs, check that override first, then the deployment.
+
+No release is expected when a merge only touches `.github/`, docs or
+`.trivyignore` (image would be identical). That is not a failure.
 
 Manual release (`gh release create …`) still triggers `build.yml` via
 `release: published`. `workflow_dispatch` on `build.yml` only pushes
