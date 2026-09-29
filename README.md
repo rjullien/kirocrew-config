@@ -104,8 +104,10 @@ Smoke does **not** start the long-running gateway or require login.
 ## Renovate
 
 Tracks `ghcr.io/kirodotdev/kirocrew` (7-day `minimumReleaseAge`, automerge) and
-GitHub Actions digests. Human review of the running image happens when
-vps-infra consumes a new digest.
+GitHub Actions digests. There is **no human review downstream**: ArgoCD Image
+Updater deploys every new release automatically (direct write-back to vps-infra
+`main`). This is an **accepted risk**; safeguards are the 7-day
+`minimumReleaseAge`, the smoke test and the Trivy CRITICAL gate.
 
 Requires secret `RENOVATE_TOKEN` (dedicated PAT with `workflow` scope). Do not
 set `RENOVATE_AUTOMERGE=false` in the workflow env.

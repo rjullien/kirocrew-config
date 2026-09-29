@@ -3,7 +3,7 @@
   "extends": ["config:recommended"],
   "packageRules": [
     {
-      "description": "Official Kiro Crew base image — pinDigests keeps tag+digest in sync. 7-day soak, automerge (human review happens when BaptTF/vps-infra consumes the image).",
+      "description": "Official Kiro Crew base image — pinDigests keeps tag+digest in sync. 7-day soak, automerge (no downstream human review: Image Updater auto-deploys, accepted risk).",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["ghcr.io/kirodotdev/kirocrew"],
       "minimumReleaseAge": "7 days",
