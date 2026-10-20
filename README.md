@@ -64,7 +64,10 @@ After the pod is up (volume on `/home/kirocrew`):
 
 ```bash
 # 1. Log in the agent runtime (kiro-cli). Credentials persist on the volume.
-kubectl exec -it -n <ns> deploy/<kirocrew> -- kiro-cli login
+#    The container has no browser: plain `kiro-cli login` fails with
+#    "Failed to open browser" / "No such file or directory (os error 2)".
+#    Use the device flow and open the printed URL + code on any device.
+kubectl exec -it -n <ns> deploy/<kirocrew> -- kiro-cli login --use-device-flow
 
 # 2. Mint a dashboard login link (token auth required on :5476).
 kubectl exec -n <ns> deploy/<kirocrew> -- kirocrew token --ttl 2h
