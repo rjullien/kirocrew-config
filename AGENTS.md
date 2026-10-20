@@ -75,7 +75,8 @@ Trivy CRITICAL fixable findings. Release builds are multi-arch
 
 ## First login (runtime, not build)
 
-Documented in README — `kubectl exec … -- kiro-cli login` and
+Documented in README — `kubectl exec -it … -- kiro-cli login --use-device-flow`
+(no browser in the container) and
 `kirocrew token --ttl 2h`. Likely need `KIROCREW_ALLOW_UNSANDBOXED=1` on k8s.
 
 ## Conventions
